@@ -17,6 +17,7 @@
         .card-solid { background: white; border-radius: 1.25rem; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .btn-emerald { background-color: #059669; color: white; font-weight: 700; transition: all 0.2s; }
         .btn-emerald:hover { background-color: #047857; transform: translateY(-1px); }
+        .btn-amber { background-color: #d97706; color: white; font-weight: 700; }
         input, select { border: 1px solid #e2e8f0 !important; border-radius: 0.75rem !important; padding: 0.75rem !important; outline: none !important; }
         input:focus { border-color: #059669 !important; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1) !important; }
         .active-chip { background-color: #059669 !important; color: white !important; }
@@ -24,39 +25,49 @@
         .filter-btn { font-size: 0.65rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; color: #94a3b8; transition: all 0.2s; }
         .filter-btn.active { background: #334155; color: white; border-color: #334155; }
         .cat-tag { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body x-data="app()" x-init="init()" x-cloak>
 
-    <div class="max-w-6xl mx-auto p-4 md:p-10">
-        <header class="flex flex-col md:row justify-between items-center mb-10 gap-4 text-center md:text-left">
-            <div>
-                <h1 class="text-4xl font-black text-[#064e3b] tracking-tighter uppercase">GERINGONÇA</h1>
-                <p class="text-slate-400 font-medium tracking-tight">Cloud <span class="text-emerald-600 font-bold">Categorizado</span></p>
+    <template x-if="!logged">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-6">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl text-center">
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h2 class="text-2xl font-black text-slate-800 mb-2 uppercase tracking-tighter">Geringonça</h2>
+                <input type="password" x-model="passInput" @keydown.enter="checkPass()" class="w-full text-center text-2xl mb-4" placeholder="Senha">
+                <button @click="checkPass()" class="w-full btn-emerald py-4 rounded-xl uppercase text-xs">Entrar</button>
             </div>
+        </div>
+    </template>
+
+    <div x-show="logged" class="max-w-6xl mx-auto p-4 md:p-10">
+        <header class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl font-black text-[#064e3b] uppercase italic">GERINGONÇA</h1>
+            <button @click="logout()" class="text-slate-400 hover:text-red-500 text-xs font-bold uppercase">Sair <i class="fas fa-sign-out-alt"></i></button>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-4 space-y-6">
                 <div class="card-solid">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-user-friends text-emerald-600"></i> Integrantes</h3>
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">Integrantes</h3>
                     <div class="flex gap-2 mb-6">
-                        <input type="text" x-model="newName" @keydown.enter="addP()" class="flex-1 text-sm" placeholder="Nome...">
+                        <input type="text" x-model="newName" @keydown.enter="addP()" class="flex-1 text-sm" placeholder="Novo nome...">
                         <button @click="addP()" class="btn-emerald px-4 rounded-xl">+</button>
                     </div>
                     <div class="space-y-2">
                         <template x-for="p in peopleList" :key="p.id">
                             <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl group hover:bg-white border border-transparent hover:border-slate-100 transition-all">
                                 <span class="font-semibold text-slate-700" x-text="p.name"></span>
-                                <button @click="removeP(p.id)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-user-minus"></i></button>
+                                <button @click="removeP(p.id)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i class="fas fa-user-minus"></i></button>
                             </div>
                         </template>
                     </div>
                 </div>
 
                 <div class="card-solid border-t-4 border-t-emerald-600">
-                    <h3 class="font-bold text-slate-800 mb-6 uppercase text-xs tracking-widest">Resumo de Saldos</h3>
+                    <h3 class="font-bold text-slate-800 mb-6 uppercase text-xs tracking-widest text-center">Resumo Geral</h3>
                     <div class="space-y-5">
                         <template x-for="p in balances" :key="p.name">
                             <div class="flex justify-between items-end border-b border-slate-50 pb-3">
@@ -64,7 +75,7 @@
                                     <p class="text-[10px] font-bold text-slate-400 uppercase mb-1" x-text="p.name"></p>
                                     <p class="font-extrabold text-lg" :class="p.val >= 0 ? 'text-emerald-600' : 'text-orange-500'" x-text="formatMoney(p.val)"></p>
                                 </div>
-                                <button x-show="p.val < -0.01" @click="startSettle(p)" class="text-[10px] font-bold text-blue-600 border border-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all uppercase">Pagar Item</button>
+                                <button x-show="p.val < -0.01" @click="startSettle(p)" class="text-[10px] font-bold text-blue-600 border border-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white uppercase transition-all">Pagar</button>
                             </div>
                         </template>
                     </div>
@@ -72,28 +83,31 @@
             </div>
 
             <div class="lg:col-span-4 space-y-6">
-                <div x-show="!settle.active" class="card-solid bg-white shadow-lg border-2 border-emerald-50">
-                    <h3 class="font-bold text-[#064e3b] mb-6 flex items-center gap-2 uppercase text-sm tracking-tighter"><i class="fas fa-plus-circle"></i> Novo Lançamento</h3>
+                <div x-show="!settle.active" class="card-solid transition-all duration-300" :class="editingId ? 'border-amber-400 bg-amber-50 shadow-amber-100' : 'border-emerald-50 bg-white'">
+                    <h3 class="font-bold mb-6 flex items-center gap-2 uppercase text-sm tracking-tighter" :class="editingId ? 'text-amber-800' : 'text-[#064e3b]'">
+                        <i :class="editingId ? 'fas fa-edit' : 'fas fa-plus-circle'"></i> 
+                        <span x-text="editingId ? 'Editando Gasto' : 'Novo Gasto'"></span>
+                    </h3>
                     <div class="space-y-4">
                         <div>
                             <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição</label>
-                            <input type="text" x-model="form.desc" class="w-full mt-1" placeholder="Ex: Combustível...">
+                            <input type="text" x-model="form.desc" class="w-full mt-1 bg-white" placeholder="O que comprou?">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Total</label>
-                                <input type="number" x-model="form.amount" class="w-full font-bold" placeholder="0.00">
+                                <input type="number" x-model="form.amount" class="w-full font-bold bg-white" placeholder="0.00">
                             </div>
                             <div>
                                 <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Categoria</label>
-                                <select x-model="form.category" class="w-full mt-1 font-semibold text-slate-700">
+                                <select x-model="form.category" class="w-full mt-1 font-semibold text-slate-700 bg-white">
                                     <template x-for="cat in categories"><option :value="cat.id" x-text="cat.label"></option></template>
                                 </select>
                             </div>
                         </div>
                         <div>
                             <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Quem Pagou?</label>
-                            <select x-model="form.payer" class="w-full mt-1 font-semibold text-slate-700">
+                            <select x-model="form.payer" class="w-full mt-1 font-semibold text-slate-700 bg-white">
                                 <template x-for="p in peopleNames"><option :value="p" x-text="p"></option></template>
                             </select>
                         </div>
@@ -105,36 +119,39 @@
                                 </template>
                             </div>
                         </div>
-                        <button @click="saveT()" class="w-full btn-emerald py-4 rounded-xl shadow-md mt-2 uppercase tracking-widest text-xs">Salvar Gasto</button>
+                        
+                        <div class="flex gap-2">
+                            <button x-show="editingId" @click="cancelEdit()" class="flex-1 bg-slate-200 text-slate-600 font-bold py-4 rounded-xl text-xs uppercase">Cancelar</button>
+                            <button @click="saveT()" class="flex-[2] py-4 rounded-xl shadow-md uppercase tracking-widest text-xs" :class="editingId ? 'btn-amber' : 'btn-emerald'">
+                                <span x-text="editingId ? 'Atualizar Gasto' : 'Salvar Gasto'"></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div x-show="settle.active" x-transition class="card-solid bg-blue-50 border-blue-200 shadow-lg">
-                    <h3 class="font-bold text-blue-800 mb-4 text-sm flex items-center gap-2 uppercase tracking-tighter"><i class="fas fa-receipt"></i> Pagar Item Específico</h3>
+                    <h3 class="font-bold text-blue-800 mb-4 text-sm uppercase tracking-tighter italic">Pagar Gasto Específico</h3>
                     <div class="space-y-4">
                         <div class="p-3 bg-white rounded-xl border border-blue-100">
                             <span class="text-[10px] font-bold text-slate-400 uppercase">Pagador:</span>
                             <p class="font-bold text-blue-600 text-lg" x-text="settle.from"></p>
                         </div>
-
                         <div>
-                            <label class="text-[10px] font-bold text-blue-400 uppercase ml-1">Qual gasto você está pagando?</label>
+                            <label class="text-[10px] font-bold text-blue-400 uppercase ml-1">Escolha o item no histórico</label>
                             <select x-model="settle.selectedGastoIndex" @change="updateSettleAmount()" class="w-full mt-1 bg-white">
-                                <option value="">-- Selecione o gasto --</option>
+                                <option value="">-- Qual gasto você está pagando? --</option>
                                 <template x-for="(g, index) in getPendentes(settle.from)" :key="index">
                                     <option :value="index" x-text="`${g.desc} (${formatMoney(g.share)})`"></option>
                                 </template>
                             </select>
                         </div>
-
                         <div x-show="settle.selectedGastoIndex !== ''" class="p-3 bg-white rounded-xl border border-blue-100">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase">Valor do acerto</label>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Confirmar valor</label>
                             <input type="number" x-model="settle.amount" class="w-full text-2xl font-black text-slate-700 mt-1 border-none focus:ring-0 p-0">
                         </div>
-
                         <div class="flex gap-2 pt-2">
-                            <button @click="settle.active = false" class="flex-1 text-xs font-bold text-slate-400">CANCELAR</button>
-                            <button @click="confirmSettle()" class="flex-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700">CONFIRMAR</button>
+                            <button @click="settle.active = false" class="flex-1 text-xs font-bold text-slate-400 uppercase">Voltar</button>
+                            <button @click="confirmSettle()" class="flex-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-md">Confirmar</button>
                         </div>
                     </div>
                 </div>
@@ -147,46 +164,38 @@
                         
                         <div class="relative mb-3">
                             <i class="fas fa-search absolute left-3 top-3 text-slate-300 text-xs"></i>
-                            <input type="text" x-model="filters.search" placeholder="Buscar..." class="w-full !pl-8 !py-2 !text-xs">
+                            <input type="text" x-model="filters.search" placeholder="Procurar..." class="w-full !pl-8 !py-2 !text-xs">
                         </div>
 
-                        <div class="flex gap-2 mb-3">
-                            <button @click="filters.type = 'all'" :class="filters.type === 'all' ? 'active' : ''" class="filter-btn">TUDO</button>
-                            <button @click="filters.type = 'expense'" :class="filters.type === 'expense' ? 'active' : ''" class="filter-btn">GASTOS</button>
-                            <button @click="filters.type = 'settle'" :class="filters.type === 'settle' ? 'active' : ''" class="filter-btn">PAGOS</button>
-                        </div>
-
-                        <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide border-t pt-2">
-                            <button @click="filters.category = 'all'" 
-                                    :class="filters.category === 'all' ? 'bg-slate-200 text-slate-600' : 'text-slate-400'" 
-                                    class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap">Todas Cats</button>
+                        <div class="flex gap-1 overflow-x-auto pb-1 border-t pt-2">
+                            <button @click="filters.category = 'all'" :class="filters.category === 'all' ? 'bg-slate-200 text-slate-600' : 'text-slate-400'" class="text-[9px] font-bold px-2 py-1 rounded">Todas</button>
                             <template x-for="cat in categories">
-                                <button @click="filters.category = cat.id" 
-                                        :class="filters.category === cat.id ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400'" 
-                                        class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap" x-text="cat.label"></button>
+                                <button @click="filters.category = cat.id" :class="filters.category === cat.id ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400'" class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap" x-text="cat.label"></button>
                             </template>
                         </div>
                     </div>
 
-                    <div class="space-y-4 overflow-y-auto pr-2 flex-1">
+                    <div class="space-y-3 overflow-y-auto pr-2 flex-1">
                         <template x-for="t in filteredTransactions" :key="t.id">
-                            <div class="p-4 border border-slate-50 bg-slate-50/50 rounded-2xl relative group hover:bg-white hover:border-slate-100 transition-all">
-                                <button @click="deleteT(t.id)" class="absolute top-2 right-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-times-circle"></i></button>
+                            <div class="p-4 border border-slate-50 bg-slate-50/50 rounded-2xl relative group hover:bg-white hover:border-slate-100 transition-all"
+                                 :class="editingId === t.id ? 'border-amber-400 ring-2 ring-amber-100' : ''">
                                 
+                                <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                    <button @click="editT(t)" class="text-amber-500 hover:text-amber-700 text-xs"><i class="fas fa-pen"></i></button>
+                                    <button @click="deleteT(t.id)" class="text-slate-300 hover:text-red-500 text-xs"><i class="fas fa-times-circle"></i></button>
+                                </div>
+
                                 <div class="flex justify-between items-start">
                                     <div>
-                                        <p class="font-bold text-sm text-slate-800 truncate pr-6" x-text="t.desc"></p>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <span x-show="!t.isSettle" class="cat-tag bg-slate-200 text-slate-500" x-text="t.category"></span>
-                                            <span x-show="t.isSettle" class="cat-tag bg-blue-100 text-blue-600">PAGAMENTO</span>
-                                        </div>
+                                        <p class="font-bold text-sm text-slate-800 truncate pr-10" x-text="t.desc"></p>
+                                        <span class="cat-tag mt-1" :class="t.isSettle ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'" x-text="t.isSettle ? 'PAGO' : t.category"></span>
                                     </div>
                                     <span class="text-[9px] font-bold text-slate-300" x-text="formatDate(t.timestamp)"></span>
                                 </div>
 
                                 <div class="flex justify-between items-center mt-3">
-                                    <p class="text-[10px] text-slate-500 font-medium">
-                                        <span x-show="!t.isSettle">Quem pagou: <b class="text-slate-700" x-text="t.payer"></b></span>
+                                    <p class="text-[10px] text-slate-500 font-medium italic">
+                                        <span x-show="!t.isSettle">Pagador: <b class="text-slate-700 not-italic" x-text="t.payer"></b></span>
                                         <span x-show="t.isSettle"><b x-text="t.payer"></b> → <b x-text="t.receiver"></b></span>
                                     </p>
                                     <p class="font-black text-sm" :class="t.isSettle ? 'text-blue-500' : 'text-emerald-700'" x-text="formatMoney(t.amount)"></p>
@@ -207,8 +216,7 @@
             projectId: "geringonca-53f0e",
             storageBucket: "geringonca-53f0e.firebasestorage.app",
             messagingSenderId: "42504617040",
-            appId: "1:42504617040:web:a5ee3fe5530c54e5be2555",
-            measurementId: "G-X0DN13KHEE"
+            appId: "1:42504617040:web:a5ee3fe5530c54e5be2555"
         };
 
         firebase.initializeApp(firebaseConfig);
@@ -216,6 +224,11 @@
 
         function app() {
             return {
+                SECRET_PASS: '1234', 
+                logged: false,
+                passInput: '',
+                editingId: null,
+
                 peopleList: [], peopleNames: [], transactions: [], balances: [], newName: '',
                 categories: [
                     { id: 'festa', label: 'Festa 🥳' },
@@ -225,17 +238,16 @@
                 ],
                 form: { desc: '', amount: '', payer: '', involved: [], category: 'outros' },
                 settle: { active: false, from: '', to: '', amount: 0, selectedGastoIndex: '' },
-                filters: { search: '', type: 'all', category: 'all' },
+                filters: { search: '', category: 'all' },
 
                 init() {
+                    if (localStorage.getItem('geringonca_auth') === 'true') this.logged = true;
+
                     db.ref('integrantes').on('value', (s) => {
                         const data = s.val() || {};
                         this.peopleList = Object.keys(data).map(key => ({ id: key, name: data[key] }));
                         this.peopleNames = this.peopleList.map(p => p.name);
-                        if(this.peopleNames.length > 0 && !this.form.payer) {
-                            this.form.payer = this.peopleNames[0];
-                            this.form.involved = [...this.peopleNames];
-                        }
+                        this.resetForm();
                         this.calculate();
                     });
 
@@ -246,71 +258,115 @@
                     });
                 },
 
+                checkPass() {
+                    if (this.passInput === this.SECRET_PASS) {
+                        this.logged = true;
+                        localStorage.setItem('geringonca_auth', 'true');
+                    } else { alert('Senha errada!'); this.passInput = ''; }
+                },
+
+                logout() { this.logged = false; localStorage.removeItem('geringonca_auth'); },
+
                 getPendentes(userName) {
                     return this.transactions
                         .filter(t => !t.isSettle && t.involved.includes(userName) && t.payer !== userName)
-                        .map(t => ({
-                            desc: t.desc,
-                            share: t.amount / (t.involved.length || 1),
-                            payerOriginal: t.payer
-                        }));
+                        .map(t => ({ desc: t.desc, share: t.amount / (t.involved.length || 1), payerOriginal: t.payer }));
                 },
 
                 updateSettleAmount() {
                     if(this.settle.selectedGastoIndex === '') return;
-                    const selecionado = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
-                    this.settle.amount = selecionado.share.toFixed(2);
-                    this.settle.to = selecionado.payerOriginal;
+                    const sel = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    this.settle.amount = sel.share.toFixed(2);
+                    this.settle.to = sel.payerOriginal;
                 },
 
                 get filteredTransactions() {
                     return this.transactions.filter(t => {
-                        const matchesSearch = t.desc.toLowerCase().includes(this.filters.search.toLowerCase()) || 
-                                              t.payer.toLowerCase().includes(this.filters.search.toLowerCase());
-                        const matchesType = this.filters.type === 'all' || 
-                                           (this.filters.type === 'expense' && !t.isSettle) || 
-                                           (this.filters.type === 'settle' && t.isSettle);
+                        const matchesSearch = t.desc.toLowerCase().includes(this.filters.search.toLowerCase());
                         const matchesCat = this.filters.category === 'all' || t.category === this.filters.category;
-                        return matchesSearch && matchesType && matchesCat;
+                        return matchesSearch && matchesCat;
                     });
                 },
 
                 addP() { if (this.newName.trim()) { db.ref('integrantes').push(this.newName.trim()); this.newName = ''; } },
-                removeP(id) { if (confirm('Remover integrante?')) db.ref('integrantes/' + id).remove(); },
-                toggleInv(name) { this.form.involved.includes(name) ? this.form.involved = this.form.involved.filter(n => n !== name) : this.form.involved.push(name); },
+                removeP(id) { if (confirm('Remover?')) db.ref('integrantes/' + id).remove(); },
+                toggleInv(name) { 
+                    this.form.involved.includes(name) ? 
+                    this.form.involved = this.form.involved.filter(n => n !== name) : 
+                    this.form.involved.push(name); 
+                },
 
                 saveT() {
-                    if(!this.form.desc || !this.form.amount || this.form.involved.length === 0) return alert('Preencha os dados!');
-                    const newRef = db.ref('transacoes').push();
-                    newRef.set({
-                        id: newRef.key, desc: this.form.desc, amount: parseFloat(this.form.amount),
-                        payer: this.form.payer, involved: [...this.form.involved], 
-                        category: this.form.category, isSettle: false, timestamp: Date.now()
-                    });
-                    this.form.desc = ''; this.form.amount = '';
+                    if(!this.form.desc || !this.form.amount || this.form.involved.length === 0) return alert('Campos vazios!');
+                    
+                    const payload = {
+                        desc: this.form.desc, 
+                        amount: parseFloat(this.form.amount),
+                        payer: this.form.payer, 
+                        involved: [...this.form.involved], 
+                        category: this.form.category, 
+                        isSettle: false
+                    };
+
+                    if(this.editingId) {
+                        db.ref('transacoes/' + this.editingId).update(payload);
+                        this.editingId = null;
+                    } else {
+                        const newRef = db.ref('transacoes').push();
+                        payload.id = newRef.key;
+                        payload.timestamp = Date.now();
+                        newRef.set(payload);
+                    }
+                    this.resetForm();
+                },
+
+                editT(t) {
+                    if(t.isSettle) return alert('Pagamentos não podem ser editados, apenas excluídos.');
+                    this.settle.active = false;
+                    this.editingId = t.id;
+                    this.form = {
+                        desc: t.desc,
+                        amount: t.amount,
+                        payer: t.payer,
+                        involved: [...t.involved],
+                        category: t.category
+                    };
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+
+                cancelEdit() { this.editingId = null; this.resetForm(); },
+
+                resetForm() {
+                    this.form = { 
+                        desc: '', 
+                        amount: '', 
+                        payer: this.peopleNames[0] || '', 
+                        involved: [...this.peopleNames], 
+                        category: 'outros' 
+                    };
                 },
 
                 startSettle(p) {
+                    this.cancelEdit();
                     this.settle.active = true;
                     this.settle.from = p.name;
                     this.settle.selectedGastoIndex = '';
-                    this.settle.amount = 0;
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
 
                 confirmSettle() {
-                    if (this.settle.selectedGastoIndex === '') return alert('Selecione o gasto!');
-                    const selecionado = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    if(this.settle.selectedGastoIndex === '') return;
+                    const sel = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
                     const newRef = db.ref('transacoes').push();
                     newRef.set({
-                        id: newRef.key, desc: `Pago: ${selecionado.desc}`, amount: parseFloat(this.settle.amount),
-                        payer: this.settle.from, receiver: selecionado.payerOriginal, isSettle: true,
+                        id: newRef.key, desc: `Pago: ${sel.desc}`, amount: parseFloat(this.settle.amount),
+                        payer: this.settle.from, receiver: sel.payerOriginal, isSettle: true,
                         timestamp: Date.now()
                     });
                     this.settle.active = false;
                 },
 
-                deleteT(id) { if(confirm('Apagar registro?')) db.ref('transacoes/' + id).remove(); },
+                deleteT(id) { if(confirm('Apagar permanentemente?')) db.ref('transacoes/' + id).remove(); },
 
                 calculate() {
                     let b = {}; this.peopleNames.forEach(name => b[name] = 0);
@@ -330,9 +386,8 @@
 
                 formatMoney(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v); },
                 formatDate(ts) {
-                    if(!ts) return '';
                     const d = new Date(ts);
-                    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+                    return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'});
                 }
             }
         }
