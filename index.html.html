@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GERINGONÇA | Cloud Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        body { background-color: #f1f5f9; font-family: 'Inter', sans-serif; color: #334155; }
+        .card-solid { background: white; border-radius: 1.25rem; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .btn-emerald { background-color: #059669; color: white; font-weight: 700; transition: all 0.2s; }
+        .btn-emerald:hover { background-color: #047857; transform: translateY(-1px); }
+        input, select { border: 1px solid #e2e8f0 !important; border-radius: 0.75rem !important; padding: 0.75rem !important; outline: none !important; }
+        input:focus { border-color: #059669 !important; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1) !important; }
+        .active-chip { background-color: #059669 !important; color: white !important; }
+        [x-cloak] { display: none !important; }
+        .filter-btn { font-size: 0.65rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; color: #94a3b8; transition: all 0.2s; }
+        .filter-btn.active { background: #334155; color: white; border-color: #334155; }
+        .cat-tag { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body x-data="app()" x-init="init()" x-cloak>
+
+    <div class="max-w-6xl mx-auto p-4 md:p-10">
+        <header class="flex flex-col md:row justify-between items-center mb-10 gap-4 text-center md:text-left">
+            <div>
+                <h1 class="text-4xl font-black text-[#064e3b] tracking-tighter uppercase">GERINGONÇA</h1>
+                <p class="text-slate-400 font-medium tracking-tight">Cloud <span class="text-emerald-600 font-bold">Categorizado</span></p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="card-solid">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-user-friends text-emerald-600"></i> Integrantes</h3>
+                    <div class="flex gap-2 mb-6">
+                        <input type="text" x-model="newName" @keydown.enter="addP()" class="flex-1 text-sm" placeholder="Nome...">
+                        <button @click="addP()" class="btn-emerald px-4 rounded-xl">+</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="p in peopleList" :key="p.id">
+                            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl group hover:bg-white border border-transparent hover:border-slate-100 transition-all">
+                                <span class="font-semibold text-slate-700" x-text="p.name"></span>
+                                <button @click="removeP(p.id)" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-user-minus"></i></button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="card-solid border-t-4 border-t-emerald-600">
+                    <h3 class="font-bold text-slate-800 mb-6 uppercase text-xs tracking-widest">Resumo de Saldos</h3>
+                    <div class="space-y-5">
+                        <template x-for="p in balances" :key="p.name">
+                            <div class="flex justify-between items-end border-b border-slate-50 pb-3">
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1" x-text="p.name"></p>
+                                    <p class="font-extrabold text-lg" :class="p.val >= 0 ? 'text-emerald-600' : 'text-orange-500'" x-text="formatMoney(p.val)"></p>
+                                </div>
+                                <button x-show="p.val < -0.01" @click="startSettle(p)" class="text-[10px] font-bold text-blue-600 border border-blue-100 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all uppercase">Pagar Item</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-6">
+                <div x-show="!settle.active" class="card-solid bg-white shadow-lg border-2 border-emerald-50">
+                    <h3 class="font-bold text-[#064e3b] mb-6 flex items-center gap-2 uppercase text-sm tracking-tighter"><i class="fas fa-plus-circle"></i> Novo Lançamento</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição</label>
+                            <input type="text" x-model="form.desc" class="w-full mt-1" placeholder="Ex: Combustível...">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Total</label>
+                                <input type="number" x-model="form.amount" class="w-full font-bold" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Categoria</label>
+                                <select x-model="form.category" class="w-full mt-1 font-semibold text-slate-700">
+                                    <template x-for="cat in categories"><option :value="cat.id" x-text="cat.label"></option></template>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Quem Pagou?</label>
+                            <select x-model="form.payer" class="w-full mt-1 font-semibold text-slate-700">
+                                <template x-for="p in peopleNames"><option :value="p" x-text="p"></option></template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Dividir com:</label>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                <template x-for="p in peopleNames">
+                                    <button @click="toggleInv(p)" :class="form.involved.includes(p) ? 'active-chip' : 'bg-slate-100 text-slate-400'" class="px-3 py-2 rounded-xl text-xs font-bold transition-all" x-text="p"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <button @click="saveT()" class="w-full btn-emerald py-4 rounded-xl shadow-md mt-2 uppercase tracking-widest text-xs">Salvar Gasto</button>
+                    </div>
+                </div>
+
+                <div x-show="settle.active" x-transition class="card-solid bg-blue-50 border-blue-200 shadow-lg">
+                    <h3 class="font-bold text-blue-800 mb-4 text-sm flex items-center gap-2 uppercase tracking-tighter"><i class="fas fa-receipt"></i> Pagar Item Específico</h3>
+                    <div class="space-y-4">
+                        <div class="p-3 bg-white rounded-xl border border-blue-100">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Pagador:</span>
+                            <p class="font-bold text-blue-600 text-lg" x-text="settle.from"></p>
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] font-bold text-blue-400 uppercase ml-1">Qual gasto você está pagando?</label>
+                            <select x-model="settle.selectedGastoIndex" @change="updateSettleAmount()" class="w-full mt-1 bg-white">
+                                <option value="">-- Selecione o gasto --</option>
+                                <template x-for="(g, index) in getPendentes(settle.from)" :key="index">
+                                    <option :value="index" x-text="`${g.desc} (${formatMoney(g.share)})`"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div x-show="settle.selectedGastoIndex !== ''" class="p-3 bg-white rounded-xl border border-blue-100">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Valor do acerto</label>
+                            <input type="number" x-model="settle.amount" class="w-full text-2xl font-black text-slate-700 mt-1 border-none focus:ring-0 p-0">
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button @click="settle.active = false" class="flex-1 text-xs font-bold text-slate-400">CANCELAR</button>
+                            <button @click="confirmSettle()" class="flex-2 bg-blue-600 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700">CONFIRMAR</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4">
+                <div class="card-solid max-h-[85vh] flex flex-col">
+                    <div class="border-b pb-4 mb-4">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><i class="fas fa-history text-slate-400"></i> Histórico</h3>
+                        
+                        <div class="relative mb-3">
+                            <i class="fas fa-search absolute left-3 top-3 text-slate-300 text-xs"></i>
+                            <input type="text" x-model="filters.search" placeholder="Buscar..." class="w-full !pl-8 !py-2 !text-xs">
+                        </div>
+
+                        <div class="flex gap-2 mb-3">
+                            <button @click="filters.type = 'all'" :class="filters.type === 'all' ? 'active' : ''" class="filter-btn">TUDO</button>
+                            <button @click="filters.type = 'expense'" :class="filters.type === 'expense' ? 'active' : ''" class="filter-btn">GASTOS</button>
+                            <button @click="filters.type = 'settle'" :class="filters.type === 'settle' ? 'active' : ''" class="filter-btn">PAGOS</button>
+                        </div>
+
+                        <div class="flex gap-1 overflow-x-auto pb-1 scrollbar-hide border-t pt-2">
+                            <button @click="filters.category = 'all'" 
+                                    :class="filters.category === 'all' ? 'bg-slate-200 text-slate-600' : 'text-slate-400'" 
+                                    class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap">Todas Cats</button>
+                            <template x-for="cat in categories">
+                                <button @click="filters.category = cat.id" 
+                                        :class="filters.category === cat.id ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400'" 
+                                        class="text-[9px] font-bold px-2 py-1 rounded whitespace-nowrap" x-text="cat.label"></button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 overflow-y-auto pr-2 flex-1">
+                        <template x-for="t in filteredTransactions" :key="t.id">
+                            <div class="p-4 border border-slate-50 bg-slate-50/50 rounded-2xl relative group hover:bg-white hover:border-slate-100 transition-all">
+                                <button @click="deleteT(t.id)" class="absolute top-2 right-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i class="fas fa-times-circle"></i></button>
+                                
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="font-bold text-sm text-slate-800 truncate pr-6" x-text="t.desc"></p>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <span x-show="!t.isSettle" class="cat-tag bg-slate-200 text-slate-500" x-text="t.category"></span>
+                                            <span x-show="t.isSettle" class="cat-tag bg-blue-100 text-blue-600">PAGAMENTO</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-[9px] font-bold text-slate-300" x-text="formatDate(t.timestamp)"></span>
+                                </div>
+
+                                <div class="flex justify-between items-center mt-3">
+                                    <p class="text-[10px] text-slate-500 font-medium">
+                                        <span x-show="!t.isSettle">Quem pagou: <b class="text-slate-700" x-text="t.payer"></b></span>
+                                        <span x-show="t.isSettle"><b x-text="t.payer"></b> → <b x-text="t.receiver"></b></span>
+                                    </p>
+                                    <p class="font-black text-sm" :class="t.isSettle ? 'text-blue-500' : 'text-emerald-700'" x-text="formatMoney(t.amount)"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAngE5jObRFj2PU21JJ5lSFIqGHJLsxYvI",
+            authDomain: "geringonca-53f0e.firebaseapp.com",
+            databaseURL: "https://geringonca-53f0e-default-rtdb.firebaseio.com",
+            projectId: "geringonca-53f0e",
+            storageBucket: "geringonca-53f0e.firebasestorage.app",
+            messagingSenderId: "42504617040",
+            appId: "1:42504617040:web:a5ee3fe5530c54e5be2555",
+            measurementId: "G-X0DN13KHEE"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function app() {
+            return {
+                peopleList: [], peopleNames: [], transactions: [], balances: [], newName: '',
+                categories: [
+                    { id: 'festa', label: 'Festa 🥳' },
+                    { id: 'uber', label: 'Uber 🚗' },
+                    { id: 'floripa', label: 'Floripa 🏝️' },
+                    { id: 'outros', label: 'Outros 📦' }
+                ],
+                form: { desc: '', amount: '', payer: '', involved: [], category: 'outros' },
+                settle: { active: false, from: '', to: '', amount: 0, selectedGastoIndex: '' },
+                filters: { search: '', type: 'all', category: 'all' },
+
+                init() {
+                    db.ref('integrantes').on('value', (s) => {
+                        const data = s.val() || {};
+                        this.peopleList = Object.keys(data).map(key => ({ id: key, name: data[key] }));
+                        this.peopleNames = this.peopleList.map(p => p.name);
+                        if(this.peopleNames.length > 0 && !this.form.payer) {
+                            this.form.payer = this.peopleNames[0];
+                            this.form.involved = [...this.peopleNames];
+                        }
+                        this.calculate();
+                    });
+
+                    db.ref('transacoes').on('value', (s) => {
+                        const data = s.val() ? Object.values(s.val()) : [];
+                        this.transactions = data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        this.calculate();
+                    });
+                },
+
+                getPendentes(userName) {
+                    return this.transactions
+                        .filter(t => !t.isSettle && t.involved.includes(userName) && t.payer !== userName)
+                        .map(t => ({
+                            desc: t.desc,
+                            share: t.amount / (t.involved.length || 1),
+                            payerOriginal: t.payer
+                        }));
+                },
+
+                updateSettleAmount() {
+                    if(this.settle.selectedGastoIndex === '') return;
+                    const selecionado = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    this.settle.amount = selecionado.share.toFixed(2);
+                    this.settle.to = selecionado.payerOriginal;
+                },
+
+                get filteredTransactions() {
+                    return this.transactions.filter(t => {
+                        const matchesSearch = t.desc.toLowerCase().includes(this.filters.search.toLowerCase()) || 
+                                              t.payer.toLowerCase().includes(this.filters.search.toLowerCase());
+                        const matchesType = this.filters.type === 'all' || 
+                                           (this.filters.type === 'expense' && !t.isSettle) || 
+                                           (this.filters.type === 'settle' && t.isSettle);
+                        const matchesCat = this.filters.category === 'all' || t.category === this.filters.category;
+                        return matchesSearch && matchesType && matchesCat;
+                    });
+                },
+
+                addP() { if (this.newName.trim()) { db.ref('integrantes').push(this.newName.trim()); this.newName = ''; } },
+                removeP(id) { if (confirm('Remover integrante?')) db.ref('integrantes/' + id).remove(); },
+                toggleInv(name) { this.form.involved.includes(name) ? this.form.involved = this.form.involved.filter(n => n !== name) : this.form.involved.push(name); },
+
+                saveT() {
+                    if(!this.form.desc || !this.form.amount || this.form.involved.length === 0) return alert('Preencha os dados!');
+                    const newRef = db.ref('transacoes').push();
+                    newRef.set({
+                        id: newRef.key, desc: this.form.desc, amount: parseFloat(this.form.amount),
+                        payer: this.form.payer, involved: [...this.form.involved], 
+                        category: this.form.category, isSettle: false, timestamp: Date.now()
+                    });
+                    this.form.desc = ''; this.form.amount = '';
+                },
+
+                startSettle(p) {
+                    this.settle.active = true;
+                    this.settle.from = p.name;
+                    this.settle.selectedGastoIndex = '';
+                    this.settle.amount = 0;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+
+                confirmSettle() {
+                    if (this.settle.selectedGastoIndex === '') return alert('Selecione o gasto!');
+                    const selecionado = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    const newRef = db.ref('transacoes').push();
+                    newRef.set({
+                        id: newRef.key, desc: `Pago: ${selecionado.desc}`, amount: parseFloat(this.settle.amount),
+                        payer: this.settle.from, receiver: selecionado.payerOriginal, isSettle: true,
+                        timestamp: Date.now()
+                    });
+                    this.settle.active = false;
+                },
+
+                deleteT(id) { if(confirm('Apagar registro?')) db.ref('transacoes/' + id).remove(); },
+
+                calculate() {
+                    let b = {}; this.peopleNames.forEach(name => b[name] = 0);
+                    this.transactions.forEach(t => {
+                        if(t.isSettle) {
+                            if(b[t.payer] !== undefined) b[t.payer] += parseFloat(t.amount);
+                            if(b[t.receiver] !== undefined) b[t.receiver] -= parseFloat(t.amount);
+                        } else {
+                            const involved = t.involved || [];
+                            const share = t.amount / (involved.length || 1);
+                            if (b[t.payer] !== undefined) b[t.payer] += parseFloat(t.amount);
+                            involved.forEach(name => { if (b[name] !== undefined) b[name] -= share; });
+                        }
+                    });
+                    this.balances = Object.keys(b).map(name => ({ name, val: b[name] }));
+                },
+
+                formatMoney(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v); },
+                formatDate(ts) {
+                    if(!ts) return '';
+                    const d = new Date(ts);
+                    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
