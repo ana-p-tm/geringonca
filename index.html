@@ -252,8 +252,13 @@
                     });
 
                     db.ref('transacoes').on('value', (s) => {
-                        const data = s.val() ? Object.values(s.val()) : [];
-                        this.transactions = data.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        const rawData = s.val() || {};
+                        // CORREÇÃO: Garante que o ID do Firebase esteja presente no objeto para comparação
+                        this.transactions = Object.entries(rawData).map(([key, val]) => ({
+                            ...val,
+                            id: key 
+                        })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        
                         this.calculate();
                     });
                 },
@@ -268,21 +273,39 @@
                 logout() { this.logged = false; localStorage.removeItem('geringonca_auth'); },
 
                 getPendentes(userName) {
-                    return this.transactions
-                        .filter(t => !t.isSettle && t.involved.includes(userName) && t.payer !== userName)
-                        .map(t => ({ desc: t.desc, share: t.amount / (t.involved.length || 1), payerOriginal: t.payer }));
+                    if (!userName) return [];
+
+                    // CORREÇÃO: Filtra apenas gastos que não possuem um pagamento vinculado (settlesId)
+                    const idsPagos = this.transactions
+                        .filter(t => t.isSettle && t.payer === userName && t.settlesId)
+                        .map(t => t.settlesId);
+
+                    return this.transactions.filter(t => {
+                        const ehGastoOriginal = !t.isSettle;
+                        const usuarioEstaEnvolvido = t.involved && t.involved.includes(userName) && t.payer !== userName;
+                        const aindaNaoFoiPago = !idsPagos.includes(t.id);
+
+                        return ehGastoOriginal && usuarioEstaEnvolvido && aindaNaoFoiPago;
+                    }).map(t => ({
+                        id: t.id,
+                        desc: t.desc,
+                        share: t.amount / (t.involved.length || 1),
+                        payerOriginal: t.payer
+                    }));
                 },
 
                 updateSettleAmount() {
-                    if(this.settle.selectedGastoIndex === '') return;
-                    const sel = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    const pendentes = this.getPendentes(this.settle.from);
+                    if(this.settle.selectedGastoIndex === '' || !pendentes[this.settle.selectedGastoIndex]) return;
+                    
+                    const sel = pendentes[this.settle.selectedGastoIndex];
                     this.settle.amount = sel.share.toFixed(2);
                     this.settle.to = sel.payerOriginal;
                 },
 
                 get filteredTransactions() {
                     return this.transactions.filter(t => {
-                        const matchesSearch = t.desc.toLowerCase().includes(this.filters.search.toLowerCase());
+                        const matchesSearch = (t.desc || '').toLowerCase().includes(this.filters.search.toLowerCase());
                         const matchesCat = this.filters.category === 'all' || t.category === this.filters.category;
                         return matchesSearch && matchesCat;
                     });
@@ -313,7 +336,6 @@
                         this.editingId = null;
                     } else {
                         const newRef = db.ref('transacoes').push();
-                        payload.id = newRef.key;
                         payload.timestamp = Date.now();
                         newRef.set(payload);
                     }
@@ -355,15 +377,25 @@
                 },
 
                 confirmSettle() {
-                    if(this.settle.selectedGastoIndex === '') return;
-                    const sel = this.getPendentes(this.settle.from)[this.settle.selectedGastoIndex];
+                    const pendentes = this.getPendentes(this.settle.from);
+                    if(this.settle.selectedGastoIndex === '' || !pendentes[this.settle.selectedGastoIndex]) return;
+                    
+                    const sel = pendentes[this.settle.selectedGastoIndex];
                     const newRef = db.ref('transacoes').push();
+                    
+                    // CORREÇÃO: Adiciona o settlesId para vincular o pagamento ao gasto original
                     newRef.set({
-                        id: newRef.key, desc: `Pago: ${sel.desc}`, amount: parseFloat(this.settle.amount),
-                        payer: this.settle.from, receiver: sel.payerOriginal, isSettle: true,
+                        desc: `Pago: ${sel.desc}`, 
+                        amount: parseFloat(this.settle.amount),
+                        payer: this.settle.from, 
+                        receiver: sel.payerOriginal, 
+                        isSettle: true,
+                        settlesId: sel.id,
                         timestamp: Date.now()
                     });
+                    
                     this.settle.active = false;
+                    this.settle.selectedGastoIndex = '';
                 },
 
                 deleteT(id) { if(confirm('Apagar permanentemente?')) db.ref('transacoes/' + id).remove(); },
